@@ -1,0 +1,258 @@
+<div class="recipe-demo-container">
+  <header class="recipe-header">
+    <div class="header-content">
+      <a routerLink="/projects" class="back-button">
+        <i class="fas fa-arrow-left"></i> Back to Portfolio
+      </a>
+      <h1>Recipe Book</h1>
+      <div class="header-actions">
+        <button class="add-recipe-btn" (click)="toggleAddRecipe()">
+          <i class="fas fa-plus"></i> Add Recipe
+        </button>
+        <button class="clear-storage-btn" (click)="clearLocalStorage()">
+          <i class="fas fa-trash"></i> Clear All
+        </button>
+      </div>
+    </div>
+    <div class="search-container">
+      <input type="search" 
+             placeholder="Search recipes..." 
+             class="search-input"
+             [(ngModel)]="searchQuery" />
+      <i class="fas fa-search search-icon"></i>
+    </div>
+    <div class="category-filters">
+      <button *ngFor="let category of categories"
+              [class.active]="selectedCategory === category"
+              [class]="'category-' + category.toLowerCase().replace(' ', '-')"
+              (click)="toggleSelectedCategory(category)">
+        {{category}}
+      </button>
+    </div>
+  </header>
+
+  <!-- Add Recipe Modal -->
+  <div class="modal" *ngIf="showAddRecipe">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Recipe</h2>
+        <button class="close-btn" (click)="toggleAddRecipe()">×</button>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="submitRecipe()">
+          <div class="form-group">
+            <label for="name">Recipe Name</label>
+            <input type="text" id="name" [(ngModel)]="newRecipe.name" name="name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" [(ngModel)]="newRecipe.description" name="description" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="imageUrl">Image URL</label>
+            <input type="text" id="imageUrl" [(ngModel)]="newRecipe.imageUrl" name="imageUrl" required>
+          </div>
+
+          <div class="form-group">
+            <label for="portions">Portions</label>
+            <input type="number" id="portions" [(ngModel)]="newRecipe.portions" name="portions" min="1" max="12" required>
+          </div>
+
+          <div class="form-group">
+            <label>Rating</label>
+            <div class="rating-input">
+              <i *ngFor="let star of getStarArray(5); let i = index"
+                 [class]="i < newRecipe.rating ? 'fas fa-star' : 'far fa-star'"
+                 (click)="newRecipe.rating = i + 1"
+                 class="star-icon"></i>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Categories</label>
+            <div class="category-checkboxes">
+              <div *ngFor="let cat of categories">
+                <label *ngIf="cat !== 'All'">
+                  <input type="checkbox" 
+                         [checked]="newRecipe.categories.includes(cat)"
+                         (change)="toggleCategory(cat, newRecipe.categories)">
+                  {{cat}}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Ingredients</label>
+            <div class="input-list">
+              <div class="input-item" *ngFor="let ingredient of newRecipe.ingredients; let i = index">
+                <input type="text" [(ngModel)]="newRecipe.ingredients[i]" [name]="'ingredient' + i" required>
+                <button type="button" class="remove-btn" (click)="removeIngredient(i)" *ngIf="newRecipe.ingredients.length > 1">×</button>
+              </div>
+              <button type="button" class="add-btn" (click)="addIngredient()">+ Add Ingredient</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Instructions</label>
+            <div class="input-list">
+              <div class="input-item" *ngFor="let instruction of newRecipe.instructions; let i = index">
+                <textarea [(ngModel)]="newRecipe.instructions[i]" [name]="'instruction' + i" required></textarea>
+                <button type="button" class="remove-btn" (click)="removeInstruction(i)" *ngIf="newRecipe.instructions.length > 1">×</button>
+              </div>
+              <button type="button" class="add-btn" (click)="addInstruction()">+ Add Instruction</button>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="cancel-btn" (click)="toggleAddRecipe()">Cancel</button>
+            <button type="submit" class="submit-btn">Add Recipe</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Recipe Modal -->
+  <div class="modal" *ngIf="showEditRecipe">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Recipe</h2>
+        <button class="close-btn" (click)="cancelEdit()">×</button>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="submitEditRecipe()">
+          <div class="form-group">
+            <label for="editName">Recipe Name</label>
+            <input type="text" id="editName" [(ngModel)]="editingRecipe!.name" name="editName" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editDescription">Description</label>
+            <textarea id="editDescription" [(ngModel)]="editingRecipe!.description" name="editDescription" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="editImageUrl">Image URL</label>
+            <input type="text" id="editImageUrl" [(ngModel)]="editingRecipe!.imageUrl" name="editImageUrl" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editPortions">Portions</label>
+            <input type="number" id="editPortions" [(ngModel)]="editingRecipe!.portions" name="editPortions" min="1" max="12" required>
+          </div>
+
+          <div class="form-group">
+            <label>Rating</label>
+            <div class="rating-input">
+              <i *ngFor="let star of getStarArray(5); let i = index"
+                 [class]="i < editingRecipe!.rating ? 'fas fa-star' : 'far fa-star'"
+                 (click)="editingRecipe!.rating = i + 1"
+                 class="star-icon"></i>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Categories</label>
+            <div class="category-checkboxes">
+              <div *ngFor="let cat of categories">
+                <label *ngIf="cat !== 'All'">
+                  <input type="checkbox" 
+                         [checked]="editingRecipe!.categories.includes(cat)"
+                         (change)="toggleCategory(cat, editingRecipe!.categories)">
+                  {{cat}}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Ingredients</label>
+            <div class="input-list">
+              <div class="input-item" *ngFor="let ingredient of editingRecipe!.ingredients; let i = index">
+                <input type="text" [(ngModel)]="editingRecipe!.ingredients[i]" [name]="'editIngredient' + i" required>
+                <button type="button" class="remove-btn" (click)="removeIngredientFromEdit(i)" *ngIf="editingRecipe!.ingredients.length > 1">×</button>
+              </div>
+              <button type="button" class="add-btn" (click)="addIngredientToEdit()">+ Add Ingredient</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Instructions</label>
+            <div class="input-list">
+              <div class="input-item" *ngFor="let instruction of editingRecipe!.instructions; let i = index">
+                <textarea [(ngModel)]="editingRecipe!.instructions[i]" [name]="'editInstruction' + i" required></textarea>
+                <button type="button" class="remove-btn" (click)="removeInstructionFromEdit(i)" *ngIf="editingRecipe!.instructions.length > 1">×</button>
+              </div>
+              <button type="button" class="add-btn" (click)="addInstructionToEdit()">+ Add Instruction</button>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="cancel-btn" (click)="cancelEdit()">Cancel</button>
+            <button type="submit" class="submit-btn">Update Recipe</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="recipes-container">
+    <div class="recipe-list">
+      <div class="recipe-card" *ngFor="let recipe of filteredRecipes" (click)="selectRecipe(recipe)">
+        <img [src]="recipe.imageUrl" [alt]="recipe.name">
+        <div class="recipe-info">
+          <div class="recipe-actions">
+            <button class="edit-btn" (click)="startEditRecipe(recipe, $event)">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="delete-btn" (click)="deleteRecipe(recipe, $event)">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <h3>{{recipe.name}}</h3>
+          <div class="recipe-meta">
+            <span class="portions"><i class="fas fa-users"></i> {{recipe.portions}} portions</span>
+            <div class="rating">
+              <i *ngFor="let star of getStarArray(recipe.rating); let i = index" 
+                 [class]="star ? 'fas fa-star' : 'far fa-star'"
+                 (click)="updateRating(recipe, i + 1, $event)"
+                 class="star-icon"></i>
+            </div>
+          </div>
+          <p>{{recipe.description}}</p>
+          <div class="categories">
+            <span class="category" *ngFor="let category of recipe.categories">{{category}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recipe-details" *ngIf="selectedRecipe">
+      <h2>{{selectedRecipe.name}}</h2>
+      <img [src]="selectedRecipe.imageUrl" [alt]="selectedRecipe.name">
+      <div class="recipe-actions">
+        <button class="edit-btn" (click)="startEditRecipe(selectedRecipe, $event)">
+          <i class="fas fa-edit"></i> Edit Recipe
+        </button>
+        <button class="delete-btn" (click)="deleteRecipe(selectedRecipe, $event)">
+          <i class="fas fa-trash"></i> Delete Recipe
+        </button>
+      </div>
+      <div class="ingredients">
+        <h3>Ingredients</h3>
+        <ul>
+          <li *ngFor="let ingredient of selectedRecipe.ingredients">{{ingredient}}</li>
+        </ul>
+      </div>
+      <div class="instructions">
+        <h3>Instructions</h3>
+        <ol>
+          <li *ngFor="let instruction of selectedRecipe.instructions">{{instruction}}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
